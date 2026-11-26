@@ -325,4 +325,150 @@ void anInvalidPersonalCodeIsRejected() throws Exception {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.title").value("Not found"));
     }
+
+    @Test
+    void anApprovedDecisionCanBeRecordedAndPermitIssuedThroughTheApi() throws Exception {
+        LocalDate today = LocalDate.now();
+        Long applicationId = service.createApplication(
+                "39001010103",
+                today,
+                "Requires accessible parking");
+
+        mockMvc.perform(post("/api/v1/permit-applications/" + applicationId + "/decision")
+                .header("Authorization", "Bearer superadmin")
+                .contentType("application/json")
+                .content("""
+                        {
+                            "decision_date": "%s",
+                            "decision_type": "APPROVED",
+                            "decision_reason": "Eligibility confirmed"
+                        }
+                        """.formatted(today)))
+                .andExpect(status().isCreated())
+                .andExpect(header().exists("Location"));
+
+        mockMvc.perform(get("/api/v1/permit-applications/" + applicationId)
+                .header("Authorization", "Bearer superadmin"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("DECIDED"))
+                .andExpect(jsonPath("$.decision.decision_type").value("APPROVED"))
+                .andExpect(jsonPath("$.decision.decision_reason").value("Eligibility confirmed"));
+
+        mockMvc.perform(post("/api/v1/permit-applications/" + applicationId + "/permits")
+                .header("Authorization", "Bearer superadmin")
+                .contentType("application/json")
+                .content("""
+                        {
+                            "valid_from": "%s",
+                            "valid_until": "%s"
+                        }
+                        """.formatted(today, today.plusYears(1))))
+                .andExpect(status().isCreated())
+                .andExpect(header().exists("Location"));
+
+        mockMvc.perform(get("/api/v1/permit-applications/" + applicationId)
+                .header("Authorization", "Bearer superadmin"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.permit.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.permit.permit_number").isString())
+                .andExpect(jsonPath("$.permit.valid_from").value(today.toString()))
+                .andExpect(jsonPath("$.permit.valid_until").value(today.plusYears(1).toString()));
+    }
+
+    @Test
+    void aRejectedDecisionCannotBeUsedToIssueAPermit() throws Exception {
+        LocalDate today = LocalDate.now();
+        Long applicationId = service.createApplication("39001010111", today);
+
+        mockMvc.perform(post("/api/v1/permit-applications/" + applicationId + "/decision")
+                .header("Authorization", "Bearer superadmin")
+                .contentType("application/json")
+                .content("""
+                        {
+                            "decision_date": "%s",
+                            "decision_type": "REJECTED"
+                        }
+                        """.formatted(today)))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/v1/permit-applications/" + applicationId + "/permits")
+                .header("Authorization", "Bearer superadmin")
+                .contentType("application/json")
+                .content("""
+                        {
+                            "valid_from": "%s",
+                            "valid_until": "%s"
+                        }
+                        """.formatted(today, today.plusYears(1))))
+                .andExpect(status().isConflict());
+
+        assertThat(repository.countPermitsForApplication(applicationId)).isZero();
+    }
+
+    @Test
+    void anApplicationCannotReceiveASecondDecisionThroughTheApi() throws Exception {
+        LocalDate today = LocalDate.now();
+        Long applicationId = service.createApplication("39001010129", today);
+
+        mockMvc.perform(post("/api/v1/permit-applications/" + applicationId + "/decision")
+                .header("Authorization", "Bearer superadmin")
+                .contentType("application/json")
+                .content("""
+                        {
+                            "decision_date": "%s",
+                            "decision_type": "APPROVED"
+                        }
+                        """.formatted(today)))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/v1/permit-applications/" + applicationId + "/decision")
+                .header("Authorization", "Bearer superadmin")
+                .contentType("application/json")
+                .content("""
+                        {
+                            "decision_date": "%s",
+                            "decision_type": "REJECTED"
+                        }
+                        """.formatted(today)))
+                .andExpect(status().isConflict());
+
+        mockMvc.perform(get("/api/v1/permit-applications/" + applicationId)
+                .header("Authorization", "Bearer superadmin"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.decision.decision_type").value("APPROVED"));
+    }
+
+    @Test
+    void anInvalidDecisionTypeIsRejectedThroughTheApi() throws Exception {
+        LocalDate today = LocalDate.now();
+        Long applicationId = service.createApplication("39001010137", today);
+
+        mockMvc.perform(post("/api/v1/permit-applications/" + applicationId + "/decision")
+                .header("Authorization", "Bearer superadmin")
+                .contentType("application/json")
+                .content("""
+                        {
+                            "decision_date": "%s",
+                            "decision_type": "PENDING"
+                        }
+                        """.formatted(today)))
+                .andExpect(status().isBadRequest());
+
+        assertThat(repository.loadDecision(applicationId)).isNull();
+        assertThat(repository.getApplicationStatus(applicationId)).isEqualTo("RECEIVED");
+    }
+
+    @Test
+    void aDecisionCannotBeRecordedForAMissingApplication() throws Exception {
+        mockMvc.perform(post("/api/v1/permit-applications/999999999/decision")
+                .header("Authorization", "Bearer superadmin")
+                .contentType("application/json")
+                .content("""
+                        {
+                            "decision_date": "2026-11-26",
+                            "decision_type": "APPROVED"
+                        }
+                        """))
+                .andExpect(status().isNotFound());
+    }
 }

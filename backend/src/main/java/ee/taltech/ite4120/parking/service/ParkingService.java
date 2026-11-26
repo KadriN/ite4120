@@ -83,6 +83,33 @@ public Long createApplication(
             return repository.loadDecision(applicationId);
         }
 
+        @Transactional
+        public void recordDecision(
+                Long applicationId,
+                LocalDate decisionDate,
+                String decisionType,
+                String decisionReason) {
+            requireApplication(applicationId);
+            if (repository.loadDecision(applicationId) != null) {
+                throw new ConflictException(
+                        "parkingDecision",
+                        "a decision has already been recorded for this application");
+            }
+
+            try {
+                repository.insertDecision(
+                        applicationId,
+                        decisionDate,
+                        decisionType,
+                        decisionReason);
+            } catch (DataIntegrityViolationException e) {
+                throw new ConflictException(
+                        "parkingDecision",
+                        "a decision has already been recorded for this application");
+            }
+            repository.updateApplicationStatusToDecided(applicationId);
+        }
+
         public ParkingPermit loadPermitForApplication(Long applicationId) {
             return repository.loadPermitForApplication(applicationId);
         }

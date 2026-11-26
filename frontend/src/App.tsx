@@ -4,6 +4,8 @@ import { AnimalList } from './pages/AnimalList';
 import { AnimalCreate } from './pages/AnimalCreate';
 import { AnimalDetail } from './pages/AnimalDetail';
 import { ParkingApplicationCreate } from './pages/parking/ParkingApplicationCreate';
+import { ParkingApplicationList } from './pages/parking/ParkingApplicationList';
+import { ParkingApplicationDetail } from './pages/parking/ParkingApplicationDetail';
 
 /**
  * Components that may be ABSENT from this checkout register their routes by
@@ -22,7 +24,9 @@ export const App = () => (
     <Route path="/animals" element={<AnimalList />} />
     <Route path="/animals/new" element={<AnimalCreate />} />
     <Route path="/animals/:id" element={<AnimalDetail />} />
+    <Route path="/parking/applications" element={<ParkingApplicationList />} />
     <Route path="/parking/applications/new" element={<ParkingApplicationCreate />} />
+    <Route path="/parking/applications/:id" element={<ParkingApplicationDetail />} />
     {componentRoutes}
   </Routes>
 );

@@ -155,3 +155,37 @@
 - Permit creation must validate approved application state, duplicate permits, validity periods, and permit-number uniqueness.
 - Released Liquibase changesets must remain unchanged; new database constraints require an appended changeset.
 - Testcontainers verification is a stronger check than compilation alone because it tests the migrations and PostgreSQL behavior.
+
+## 26.11.2026
+
+**Time spent:** approximately 1 hour
+
+### Activities
+- Checked that my active `baste/parking-permit-work` branch matched the shared repository's latest `main` commit.
+- Reviewed the parking-permit demo flow and identified that the UI only supported creating applications and the API had no decision endpoint.
+- Added decision recording to the API, including validation, duplicate-decision conflict handling, the `DECIDED` status transition, and the specified `Location` response.
+- Added a paginated applications list and application details UI with approval/rejection, permit issuance for approved applications, and issued permit details.
+- Added integration tests for the approved and rejected flows, duplicate decisions, invalid decision types, and missing applications.
+- Updated the README with the parking demo route and manually tested creating, approving, and issuing a permit.
+- Ran the parking integration tests and frontend typecheck successfully.
+- Restarted the local demo services after the user reported create-application errors, refreshed the browser, and confirmed the form and API were responding.
+
+### Problems and corrections
+- Gradle could not clean its test-results directory because it was a read-only OneDrive placeholder. Used a temporary Gradle init script to place build output in the system temp directory, reran the tests successfully, and removed the script and temporary output.
+- Initially ran the frontend typecheck from the repository root, where there is no `package.json`; reran it from `frontend/`.
+- Browser testing exposed deprecated Ant Design props; replaced them with the current `Space.orientation` and `Alert.title` props.
+- I stopped the local database and application servers after the first browser verification. This left the user's browser page stale and caused API connection failures. Restarted PostgreSQL, the backend, and the frontend, then verified the mock-auth endpoints and parking API returned HTTP 200.
+
+### AI assistance
+- Used Copilot to compare the current implementation with the confirmed parking specification, implement the missing API and UI workflow, add tests before implementation, and verify the end-to-end flow.
+- Used Copilot to compare the active branch with the shared repository and troubleshoot the OneDrive-related Gradle test-output issue.
+- Used Copilot to diagnose the create-form error; the initial diagnosis was that the local services were stopped, which was confirmed by refused connections and fixed by restarting them.
+
+### What I learned
+- The existing decision table and unique constraint already supported the missing API workflow, so no database migration was needed.
+- The application's local build output can be affected by OneDrive placeholder files; directing test output to a local temporary directory avoided changing repository files.
+- The complete demo can now follow the specified officer workflow from application creation through active permit details.
+- Local demo services need to remain running while the user is interacting with the browser.
+
+### Next steps
+- Review the diff with the group and run the complete pre-PR verification before committing and opening a pull request.

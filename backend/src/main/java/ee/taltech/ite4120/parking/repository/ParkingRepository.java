@@ -171,10 +171,18 @@ public Long insertApplication(
     }
 
     public Long insertApprovedDecision(Long applicationId, LocalDate decisionDate) {
+        return insertDecision(applicationId, decisionDate, "APPROVED", null);
+    }
+
+    public Long insertDecision(
+            Long applicationId,
+            LocalDate decisionDate,
+            String decisionType,
+            String decisionReason) {
         String sql = """
                 insert into parking.permit_decision
-                    (application_id, decision_date, decision_type)
-                values (?, ?, 'APPROVED')
+                    (application_id, decision_date, decision_type, decision_reason)
+                values (?, ?, ?, ?)
                 returning id
                 """;
 
@@ -182,7 +190,9 @@ public Long insertApplication(
                 sql,
                 Long.class,
                 applicationId,
-                decisionDate);
+                decisionDate,
+                decisionType,
+                decisionReason);
     }
 
     public boolean hasApprovedDecision(Long applicationId) {

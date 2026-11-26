@@ -17,6 +17,7 @@ checkout here and none is needed.
 | API — Spring Boot + springdoc | `backend/src/main/java/.../animals/` | S3 |
 | Registry adapter (mock + X-Road) | `.../animals/ownerregistry/` | S3 |
 | UI — React + @helex/ui | `frontend/src/` | S4 |
+| Accessible parking permit register | `backend/.../parking/` + `frontend/src/pages/parking/` | Parking |
 
 The UI wears the **TalTech theme** — the `taltech` pack from
 `helex-solutions/helex-extensions`, registered in `frontend/src/theme/taltech.ts`
@@ -49,6 +50,13 @@ Signed in automatically as a mock user; the API accepts
 `Authorization: Bearer <any-username>` in local mode. The database is
 disposable: `scripts/reset-db` destroys and recreates it, and Liquibase
 rebuilds the schema on the next backend start.
+
+### Parking permit register demo
+
+Open `http://localhost:18640/parking/applications` to create and review
+applications, record an approval or rejection, and issue a permit for an
+approved application. The API is documented alongside the other endpoints in
+Swagger UI at `http://localhost:18440/swagger-ui.html`.
 
 ## Tests
 

@@ -1,11 +1,14 @@
 
 import { AppCard, AppButtonPrimary, useAppNotification } from '@helex/ui';
-import { Form, Input, DatePicker } from 'antd';
+import { Button, Form, Input, DatePicker } from 'antd';
 import { useState } from 'react';
 import type { Dayjs } from 'dayjs';
+import { useNavigate } from 'react-router-dom';
+import { parkingApi } from '../../api';
 
 export const ParkingApplicationCreate = () => {
   const notify = useAppNotification();
+  const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
 
   const submit = async (values: {
@@ -16,30 +19,17 @@ export const ParkingApplicationCreate = () => {
     setSaving(true);
 
     try {
-      const user = localStorage.getItem('helex_mock_user') || 'superadmin';
-
-      const response = await fetch('/api/v1/permit-applications', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${user}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          personal_code: values.personalCode,
-          application_date: values.applicationDate.format('YYYY-MM-DD'),
-          reason: values.reason || null,
-        }),
+      await parkingApi.create({
+        personal_code: values.personalCode,
+        application_date: values.applicationDate.format('YYYY-MM-DD'),
+        reason: values.reason || undefined,
       });
-
-      if (!response.ok) {
-        const problem = await response.json().catch(() => null);
-        throw new Error(problem?.detail || `HTTP ${response.status}`);
-      }
 
       notify.success(
         'Application created',
         'The parking permit application was saved.'
       );
+      navigate('/parking/applications');
     } catch (error) {
       notify.error(
         'Could not create application',
@@ -51,7 +41,7 @@ export const ParkingApplicationCreate = () => {
   };
 
   return (
-    <AppCard title="Create a parking permit application">
+    <AppCard title="Create a parking permit application" style={{ maxWidth: 720, margin: '24px auto' }}>
       <p>Enter the applicant's details to create a new application.</p>
 
       <Form layout="vertical" onFinish={submit}>
@@ -112,6 +102,9 @@ export const ParkingApplicationCreate = () => {
           </AppButtonPrimary>
         </Form.Item>
       </Form>
+      <Button type="link" onClick={() => navigate('/parking/applications')}>
+        Back to applications
+      </Button>
     </AppCard>
   );
 };

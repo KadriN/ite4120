@@ -31,6 +31,45 @@ export interface QueryResult<T> {
   meta?: { total?: number };
 }
 
+export interface ParkingApplication {
+  id: number;
+  personal_code: string;
+  application_date: string;
+  status: 'RECEIVED' | 'DECIDED';
+  reason?: string | null;
+}
+
+export interface ParkingDecision {
+  id: number;
+  application_id: number;
+  decision_date: string;
+  decision_type: 'APPROVED' | 'REJECTED';
+  decision_reason?: string | null;
+}
+
+export interface ParkingPermit {
+  id: number;
+  application_id: number;
+  permit_number: string;
+  valid_from: string;
+  valid_until: string;
+  status: 'ACTIVE';
+}
+
+export interface ParkingApplicationDetails extends ParkingApplication {
+  decision: ParkingDecision | null;
+  permit: ParkingPermit | null;
+}
+
+export interface ParkingApplicationPage {
+  data: ParkingApplication[];
+  meta: {
+    limit: number;
+    offset: number;
+    total: number;
+  };
+}
+
 function authHeaders(): Record<string, string> {
   // MockAuthProvider persists the signed-in mock user here.
   const user = localStorage.getItem('helex_mock_user') || 'superadmin';
@@ -44,6 +83,22 @@ async function handle<T>(response: Response): Promise<T> {
     throw new Error(problem?.detail || `HTTP ${response.status}`);
   }
   return response.json();
+}
+
+async function handleEmpty(response: Response): Promise<void> {
+  if (!response.ok) {
+    const problem = await response.json().catch(() => null);
+    throw new Error(problem?.detail || `HTTP ${response.status}`);
+  }
+}
+
+async function postEmpty(path: string, body: unknown): Promise<void> {
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  await handleEmpty(response);
 }
 
 export const animalsApi = {
@@ -87,4 +142,36 @@ export const animalsApi = {
     fetch('/api/animals/species', { headers: authHeaders() }).then((r) =>
       handle<{ code: string; name: string }[]>(r),
     ),
+};
+
+export const parkingApi = {
+  list: (limit: number, offset: number): Promise<ParkingApplicationPage> =>
+    fetch(`/api/v1/permit-applications?limit=${limit}&offset=${offset}`, {
+      headers: authHeaders(),
+    }).then((r) => handle<ParkingApplicationPage>(r)),
+
+  get: (id: number): Promise<ParkingApplicationDetails> =>
+    fetch(`/api/v1/permit-applications/${id}`, {
+      headers: authHeaders(),
+    }).then((r) => handle<ParkingApplicationDetails>(r)),
+
+  create: (body: {
+    personal_code: string;
+    application_date: string;
+    reason?: string;
+  }): Promise<void> => postEmpty('/api/v1/permit-applications', body),
+
+  recordDecision: (
+    id: number,
+    body: {
+      decision_date: string;
+      decision_type: 'APPROVED' | 'REJECTED';
+      decision_reason?: string;
+    },
+  ): Promise<void> => postEmpty(`/api/v1/permit-applications/${id}/decision`, body),
+
+  issuePermit: (
+    id: number,
+    body: { valid_from: string; valid_until: string },
+  ): Promise<void> => postEmpty(`/api/v1/permit-applications/${id}/permits`, body),
 };
