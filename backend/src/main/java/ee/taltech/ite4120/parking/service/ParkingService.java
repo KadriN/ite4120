@@ -79,6 +79,21 @@ public Long createApplication(
             return application;
         }
 
+        @Transactional
+        public void deleteApplication(Long applicationId) {
+            requireApplication(applicationId);
+            if (repository.loadDecision(applicationId) != null
+                    || repository.countPermitsForApplication(applicationId) > 0) {
+                throw new ConflictException(
+                        "parkingApplication",
+                        "an application with a decision or permit cannot be deleted");
+            }
+            if (!repository.softDeleteApplication(applicationId)) {
+                throw new NotFoundException(
+                        "parking application " + applicationId + " not found");
+            }
+        }
+
         public ParkingDecision loadDecision(Long applicationId) {
             return repository.loadDecision(applicationId);
         }

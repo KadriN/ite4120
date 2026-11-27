@@ -12,6 +12,7 @@ import java.time.LocalDate;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -88,6 +89,16 @@ public class ParkingApplicationController {
                 service.requireApplication(id),
                 service.loadDecision(id),
                 service.loadPermitForApplication(id));
+    }
+
+    @Operation(summary = "Delete a parking permit application")
+    @ApiResponse(responseCode = "204", description = "Application deleted")
+    @ApiResponse(responseCode = "404", description = "Application not found")
+    @ApiResponse(responseCode = "409", description = "Application already has a decision or permit")
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        service.deleteApplication(id);
+        return ResponseEntity.noContent().build();
     }
 
     @Operation(summary = "Record the decision for a parking permit application")

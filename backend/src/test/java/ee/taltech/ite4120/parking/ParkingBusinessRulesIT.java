@@ -15,11 +15,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.springframework.test.web.servlet.MockMvc;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -49,6 +51,8 @@ class ParkingBusinessRulesIT {
     ParkingRepository repository;
     @Autowired
 MockMvc mockMvc;
+        @Autowired
+        JdbcTemplate jdbcTemplate;
 @Test
 void anInvalidPersonalCodeIsRejected() throws Exception {
     // Given an applicant submits an invalid personal identity code
@@ -324,6 +328,78 @@ void anInvalidPersonalCodeIsRejected() throws Exception {
                 .header("Authorization", "Bearer superadmin"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.title").value("Not found"));
+    }
+
+    @Test
+    void anUndecidedApplicationCanBeSoftDeletedThroughTheApi() throws Exception {
+        Long applicationId = service.createApplication(
+                "39001010145",
+                LocalDate.now());
+
+        mockMvc.perform(delete("/api/v1/permit-applications/" + applicationId)
+                .header("Authorization", "Bearer superadmin"))
+                .andExpect(status().isNoContent());
+
+        assertThat(jdbcTemplate.queryForObject(
+                "select sys_status from parking.permit_application where id = ?",
+                String.class,
+                applicationId)).isEqualTo("C");
+
+        mockMvc.perform(get("/api/v1/permit-applications/" + applicationId)
+                .header("Authorization", "Bearer superadmin"))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(get("/api/v1/permit-applications")
+                .header("Authorization", "Bearer superadmin")
+                .param("limit", "100")
+                .param("offset", "0"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath(
+                        "$.data[?(@.id == " + applicationId + ")]").doesNotExist());
+    }
+
+    @Test
+    void anApplicationWithADecisionCannotBeDeleted() throws Exception {
+        Long applicationId = service.createApprovedApplication(
+                "39001010153",
+                LocalDate.now());
+
+        mockMvc.perform(delete("/api/v1/permit-applications/" + applicationId)
+                .header("Authorization", "Bearer superadmin"))
+                .andExpect(status().isConflict());
+
+        mockMvc.perform(get("/api/v1/permit-applications/" + applicationId)
+                .header("Authorization", "Bearer superadmin"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.decision.decision_type").value("APPROVED"));
+    }
+
+    @Test
+    void anApplicationWithAnIssuedPermitCannotBeDeleted() throws Exception {
+        Long applicationId = service.createApprovedApplication(
+                "39001010161",
+                LocalDate.now());
+        service.issuePermit(
+                applicationId,
+                "PARK-DEL-001",
+                LocalDate.now(),
+                LocalDate.now().plusYears(1));
+
+        mockMvc.perform(delete("/api/v1/permit-applications/" + applicationId)
+                .header("Authorization", "Bearer superadmin"))
+                .andExpect(status().isConflict());
+
+        mockMvc.perform(get("/api/v1/permit-applications/" + applicationId)
+                .header("Authorization", "Bearer superadmin"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.permit.status").value("ACTIVE"));
+    }
+
+    @Test
+    void aMissingApplicationCannotBeDeleted() throws Exception {
+        mockMvc.perform(delete("/api/v1/permit-applications/999999999")
+                .header("Authorization", "Bearer superadmin"))
+                .andExpect(status().isNotFound());
     }
 
     @Test

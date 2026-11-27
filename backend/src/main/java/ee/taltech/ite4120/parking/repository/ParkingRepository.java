@@ -97,6 +97,16 @@ public Long insertApplication(
         return count == null ? 0 : count;
     }
 
+    public boolean softDeleteApplication(Long applicationId) {
+        return jdbcTemplate.update(
+                """
+                update parking.permit_application
+                   set sys_status = 'C'
+                 where id = ? and sys_status = 'A'
+                """,
+                applicationId) == 1;
+    }
+
     public List<ParkingApplication> searchApplications(ParkingApplicationQueryParams p) {
         validateListParams(p);
         SqlBuilder sb = new SqlBuilder(

@@ -15,9 +15,9 @@ A municipal officer creates a permit application, records an approval or rejecti
 | Table | Field | Type | Rules |
 | --- | --- | --- | --- |
 | `parking.permit_application` | `id` | bigint | PK |
-| | `personal_code` | varchar(11) | required |
+| | `personal_code` | text | required; exactly 11 digits |
 | | `application_date` | date | required |
-| | `status` | varchar(30) | required; system sets to `RECEIVED` on creation and `DECIDED` when the application's single decision is recorded |
+| | `status` | varchar(20) | required; system sets to `RECEIVED` on creation and `DECIDED` when the application's single decision is recorded |
 | | `reason` | varchar(500) | optional |
 | `parking.permit_decision` | `id` | bigint | PK |
 | | `application_id` | bigint | required; FK → `permit_application.id`; unique (one decision per application) |
@@ -55,6 +55,7 @@ The REST API must return consistent error responses:
 | `GET /api/v1/permit-applications` | paged list; optional filters: `status`, `applicationDateFrom`, `applicationDateTo`; pagination and sorting as specified below; answers **200** | 400 invalid filter, pagination, or sort value |
 | `POST /api/v1/permit-applications` | create an application using `personal_code`, `application_date` and optional `reason`; answers **201 + Location** identifying the created application | 400 validation |
 | `GET /api/v1/permit-applications/{id}` | retrieve an application's details, including its decision and any issued permit | 404 application not found |
+| `DELETE /api/v1/permit-applications/{id}` | soft-delete an application that has no decision or permit; answers **204** | 404 application not found · 409 application already has a decision or permit |
 | `POST /api/v1/permit-applications/{id}/decision` | record the application's single decision using `decision_date`, `decision_type` and optional `decision_reason`; answers **201 + Location** identifying the application's details | 400 validation · 404 application not found · 409 decision already recorded |
 | `POST /api/v1/permit-applications/{id}/permits` | issue a permit using `valid_from` and `valid_until`; the system generates the unique `permit_number`; answers **201 + Location** identifying the created permit | 400 validation · 404 application not found · 409 application is not approved or already has a permit |
 | `GET /api/v1/parking-permits/{id}` | retrieve one issued permit, including its permit number, validity period and status | 404 permit not found |
@@ -84,6 +85,8 @@ Each application record contains `id`, `personal_code`, `application_date`, and 
 - Invalid pagination or sort values return `400 Bad Request`.
 
 The decision endpoint does not expose a separate decision resource. Its `Location` header points to the existing application details resource, `GET /api/v1/permit-applications/{id}`.
+
+Deleting an application sets its `sys_status` to inactive; it does not physically delete data. Applications with a recorded decision or issued permit cannot be deleted. A soft-deleted application is omitted from list results and is not found by the details endpoint.
 
 ## UI and business requirements
 
@@ -205,3 +208,27 @@ The following TEHIK non-functional requirements are relevant to the Accessible P
    Given a permit application that already has a parking permit  
    When the municipal officer attempts to issue another permit for that application  
    Then the request is rejected with `409 Conflict` and the original permit remains unchanged
+
+9. **An undecided application can be deleted.**
+
+   - Given a permit application with no decision or permit
+   - When the municipal officer deletes the application
+   - Then the application is soft-deleted, the API answers `204 No Content`, and the application is no longer returned by the list or details endpoints
+
+10. **An application with a decision cannot be deleted.**
+
+   - Given a permit application that has a recorded decision
+   - When the municipal officer attempts to delete it
+   - Then the request is rejected with `409 Conflict` and the application and decision remain unchanged
+
+11. **An application with an issued permit cannot be deleted.**
+
+   - Given a permit application that has an issued permit
+   - When the municipal officer attempts to delete it
+   - Then the request is rejected with `409 Conflict` and the application and permit remain unchanged
+
+12. **A missing application cannot be deleted.**
+
+   - Given no permit application exists with the requested identifier
+   - When the municipal officer attempts to delete it
+   - Then the request is rejected with `404 Not Found`

@@ -1,6 +1,6 @@
 # PARKING-US-001 · Issue an accessible parking permit
 
-> **PARKING-US-001** · state **Draft** · traces to [PARKING.01](../specifications/PARKING.01-accessible-parking-permit-register.md)
+> **PARKING-US-001** · state **Confirmed** · traces to [PARKING.01](../specifications/PARKING.01-accessible-parking-permit-register.md)
 
 **As** a municipal officer  
 **I want** to issue an accessible parking permit to an eligible person  
